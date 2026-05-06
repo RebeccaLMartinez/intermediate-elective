@@ -1,2 +1,2 @@
 # intermediate-elective
-repository for intermediate elective 1
+This repository is for intermediate elective 1.
