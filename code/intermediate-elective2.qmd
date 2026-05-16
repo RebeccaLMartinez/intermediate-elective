@@ -16,7 +16,26 @@ execute:
   warning: false
 ---
 
-# 1. Setup
+# 1. Inspiration
+
+## Visualization inspiration
+
+I chose Steven Ponce’s “Coal falls. Renewables rise.” as my inspiration. I liked how the visualization uses two directly labeled time series lines, a dark background, and contrasting colors to show two categories changing through time. I also liked that the color contrast helps separate a less desirable trend from a more desirable one, which fits my goal of comparing non-native and native vegetation cover in vernal pools.
+
+## Why it makes sense for my dataset
+
+This inspiration makes sense for my dataset because the vernal pool vegetation data include percent cover values across multiple years. Since I am interested in comparing native and non-native vegetation cover through time, a two-line time series is a good way to show whether these groups follow similar or contrasting patterns.
+
+## Variables and visual mapping
+
+The x-axis will show year, and the y-axis will show mean percent cover across vernal pools. The `cover_group` variable will be mapped to color so native and non-native vegetation are shown as separate lines. Points will show yearly values, lines will show the trend through time, and direct labels/annotations will help emphasize the contrast between native and non-native cover.
+
+
+
+
+
+
+# Setup
 
 ## Packages
 
@@ -52,75 +71,159 @@ metadata <- read_csv(here("data", "vp_veg_metadata.csv"))
 
 # 2. Cleaning
 
-## Filter for native and non-native cover
-
-```{r filter cover}
-
-
-# create a cleaned vegetation data frame for native and non-native cover
-veg_cover <- veg |> 
-  
-  # keep only vernal pool transects at NCOS
-  filter(str_detect(transect_name, "VP") &
-           site == "ncos") |>
-  
-  # keep only native and non-native cover rows
-  filter(cover_category %in% c("NATIVE COVER", "NON-NATIVE COVER")) |>
-  
-  # keep columns needed for this analysis
-  select(year,
-         site,
-         transect_name,
-         transect_distance,
-         psoc,
-         cover_category,
-         percent_cover)
-
-# check a sample of the cleaned data
-veg_cover |> 
-  slice_sample(n = 10)
-
-```
-
-## Create explicit zeros
+## Create explicit 0s
 
 ```{r explicit 0s}
 
-# create explicit-zero data frame for native and non-native cover
-cover_explicit0 <- veg_cover |>
+# create explicit-zero data frame by species
+pools_explicit0 <- veg |> 
   
-  # add missing combinations and fill missing percent cover values with 0
+  # keep only vernal pool transects at NCOS
+  filter(str_detect(transect_name, "VP") &
+           site == "ncos") |> 
+  
+  # add missing combinations and fill missing percent cover with 0
   complete(year,
            transect_name,
-           cover_category,
            psoc,
            transect_distance,
-           fill = list(percent_cover = 0)) |>
+           fill = list(percent_cover = 0)) |> 
   
-  # group by year, pool, and cover category
-  group_by(year, transect_name, cover_category) |>
+  # group by year, transect, and species
+  group_by(year, transect_name, psoc) |> 
   
-  # calculate total percent cover for each cover category
-  summarize(total_pc = sum(percent_cover, na.rm = TRUE)) |>
-  
-  # ungroup data frame
-  ungroup() |>
+  # calculate total percent cover
+  summarize(sum_pc = sum(percent_cover, na.rm = TRUE),
+            .groups = "drop") |> 
   
   # create a shared column for joining with metadata
+  # keep year and transect_name because we need them later
   unite("year_pool",
         year,
         transect_name,
-        remove = FALSE) |>
+        remove = FALSE) |> 
   
-  # join metadata
-  left_join(metadata, by = "year_pool") |>
+  # join metadata to add number of quadrats
+  left_join(metadata |>
+              select(year_pool, num_quad),
+            by = "year_pool") |> 
   
   # calculate mean percent cover using number of quadrats
-  mutate(mean_pc = total_pc / num_quad)
+  mutate(mean_pc = sum_pc / num_quad)
 
-# check a sample of the summarized data
-cover_explicit0 |> 
+# check cleaned data
+pools_explicit0 |>
+  slice_sample(n = 10)
+
+# check column names
+names(pools_explicit0)
+
+# check missingness after cleaning
+gg_miss_var(pools_explicit0)
+
+
+```
+
+
+## Create native and non-native vectors
+
+```{r native and non-native vectors}
+
+
+# create a vector of native species names
+native_spp <- veg |>
+  
+  # keep only native cover rows
+  filter(cover_category == "NATIVE COVER") |>
+  
+  # pull species column as a vector
+  pull(psoc) |>
+  
+  # keep only unique species names
+  unique()
+
+
+# create a vector of non-native species names
+nonnative_spp <- veg |>
+  
+  # keep only non-native cover rows
+  filter(cover_category == "NON-NATIVE COVER") |>
+  
+  # pull species column as a vector
+  pull(psoc) |>
+  
+  # keep only unique species names
+  unique()
+
+# check number of species in each group
+length(native_spp)
+length(nonnative_spp)
+
+```
+
+
+## Add cover vectors to explicit data
+
+```{r}
+
+# add native/non-native grouping to explicit-zero data
+cover_explicit0 <- pools_explicit0 |>
+  
+  # create cover group based on species vectors
+  mutate(cover_group = case_when(
+    psoc %in% native_spp ~ "Native",
+    psoc %in% nonnative_spp ~ "Non-native",
+    TRUE ~ NA_character_
+  )) |>
+  
+  # remove species that were not classified as native or non-native
+  filter(!is.na(cover_group)) |>
+  
+  # keep columns needed for summarizing and plotting
+  select(year,
+         transect_name,
+         psoc,
+         cover_group,
+         sum_pc,
+         num_quad,
+         mean_pc)
+
+# check grouped data
+cover_explicit0 |>
   slice_sample(n = 10)
 
 ```
 
+## Summarize data
+
+
+```{r}
+
+# summarize native and non-native cover by year, pool, and cover group
+cover_pool_year <- cover_explicit0 |>
+  
+  # group by year, pool, and cover group
+  group_by(year, transect_name, cover_group) |>
+  
+  # calculate total mean percent cover across species
+  summarize(total_mean_pc = sum(mean_pc, na.rm = TRUE),
+            .groups = "drop")
+
+
+# summarize average native and non-native cover across pools by year
+cover_year_summary <- cover_pool_year |>
+  
+  # group by year and cover group
+  group_by(year, cover_group) |>
+  
+  # calculate average cover across pools
+  summarize(mean_cover = mean(total_mean_pc, na.rm = TRUE),
+            sd_cover = sd(total_mean_pc, na.rm = TRUE),
+            n_pools = n_distinct(transect_name),
+            .groups = "drop")
+
+# display summarized data
+cover_year_summary
+
+
+```
