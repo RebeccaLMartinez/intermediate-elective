@@ -24,15 +24,15 @@ execute:
 
 # general use
 library(tidyverse)
-library(janitor) 
+library(janitor) # clean column names
 
 # file organization
 library(here)
 
 # data visualization
-library(naniar) 
-library(patchwork)  
-library(viridis) 
+library(naniar) # visualize missing data
+library(patchwork) # arrange plots
+library(viridis) # color palette
 
 
 ```
@@ -41,9 +41,86 @@ library(viridis)
 
 ```{r data}
 
+# read in vegetation data
 veg <- read_csv(here("data", "veg.csv"))
 
+# read in vernal pool vegetation metadata
 metadata <- read_csv(here("data", "vp_veg_metadata.csv"))
 
 
 ```
+
+# 2. Cleaning
+
+## Filter for native and non-native cover
+
+```{r filter cover}
+
+
+# create a cleaned vegetation data frame for native and non-native cover
+veg_cover <- veg |> 
+  
+  # keep only vernal pool transects at NCOS
+  filter(str_detect(transect_name, "VP") &
+           site == "ncos") |>
+  
+  # keep only native and non-native cover rows
+  filter(cover_category %in% c("NATIVE COVER", "NON-NATIVE COVER")) |>
+  
+  # keep columns needed for this analysis
+  select(year,
+         site,
+         transect_name,
+         transect_distance,
+         psoc,
+         cover_category,
+         percent_cover)
+
+# check a sample of the cleaned data
+veg_cover |> 
+  slice_sample(n = 10)
+
+```
+
+## Create explicit zeros
+
+```{r explicit 0s}
+
+# create explicit-zero data frame for native and non-native cover
+cover_explicit0 <- veg_cover |>
+  
+  # add missing combinations and fill missing percent cover values with 0
+  complete(year,
+           transect_name,
+           cover_category,
+           psoc,
+           transect_distance,
+           fill = list(percent_cover = 0)) |>
+  
+  # group by year, pool, and cover category
+  group_by(year, transect_name, cover_category) |>
+  
+  # calculate total percent cover for each cover category
+  summarize(total_pc = sum(percent_cover, na.rm = TRUE)) |>
+  
+  # ungroup data frame
+  ungroup() |>
+  
+  # create a shared column for joining with metadata
+  unite("year_pool",
+        year,
+        transect_name,
+        remove = FALSE) |>
+  
+  # join metadata
+  left_join(metadata, by = "year_pool") |>
+  
+  # calculate mean percent cover using number of quadrats
+  mutate(mean_pc = total_pc / num_quad)
+
+# check a sample of the summarized data
+cover_explicit0 |> 
+  slice_sample(n = 10)
+
+```
+
