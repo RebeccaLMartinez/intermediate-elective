@@ -30,14 +30,18 @@ This inspiration makes sense for my dataset because the vernal pool vegetation d
 
 The x-axis will show year, and the y-axis will show mean percent cover across vernal pools. The `cover_group` variable will be mapped to color so native and non-native vegetation are shown as separate lines. Points will show yearly values, lines will show the trend through time, and direct labels/annotations will help emphasize the contrast between native and non-native cover.
 
+# 2. Planned figure
+
+The sketch below shows the planned layout for my figure. It includes two time series lines, direct labels for native and non-native cover, and a dark background inspired by the original visualization.
+
+![planned_figure](../images/sketch.jpg)
 
 
+# 3. Code the figure
 
+## Setup
 
-
-# Setup
-
-## Packages
+### Packages
 
 ```{r packages}
 
@@ -56,7 +60,7 @@ library(viridis) # color palette
 
 ```
 
-## Data
+### Data
 
 ```{r data}
 
@@ -69,9 +73,9 @@ metadata <- read_csv(here("data", "vp_veg_metadata.csv"))
 
 ```
 
-# 2. Cleaning
+## Cleaning
 
-## Create explicit 0s
+### Create explicit 0s
 
 ```{r explicit 0s}
 
@@ -124,8 +128,7 @@ gg_miss_var(pools_explicit0)
 
 ```
 
-
-## Create native and non-native vectors
+### Create native and non-native vectors
 
 ```{r native and non-native vectors}
 
@@ -161,10 +164,9 @@ length(nonnative_spp)
 
 ```
 
+### Add cover vectors to explicit data
 
-## Add cover vectors to explicit data
-
-```{r}
+```{r add cover vectors to explicit data}
 
 # add native/non-native grouping to explicit-zero data
 cover_explicit0 <- pools_explicit0 |>
@@ -194,10 +196,9 @@ cover_explicit0 |>
 
 ```
 
-## Summarize data
+### Summarize data
 
-
-```{r}
+```{r summarize data}
 
 # summarize native and non-native cover by year, pool, and cover group
 cover_pool_year <- cover_explicit0 |>
@@ -227,3 +228,6 @@ cover_year_summary
 
 
 ```
+
+
+
