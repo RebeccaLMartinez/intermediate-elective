@@ -8,10 +8,6 @@ The final visualization compares native and non-native vegetation cover through 
 
 ## Data and file information
 
-The `code` folder contains the Quarto file, rendered PDF, and final figure image.
-
-The `data` folder contains the vegetation and weather datasets used for the visualization.
-
 ```text
 .
 ├── README.md
@@ -26,6 +22,10 @@ The `data` folder contains the vegetation and weather datasets used for the visu
     ├── native_nonnative_cover.png
     └── visual_sketch.png
 ```
+
+Vegetation data are from NCOS vegetation monitoring data/report available through [eScholarship](https://escholarship.org/uc/item/16p046mb)
+
+Weather data are from [NOAA daily weather records](https://www.ncei.noaa.gov/cdo-web/)
 
 ## Rendered output
 
