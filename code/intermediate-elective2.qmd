@@ -34,7 +34,7 @@ The x-axis will show year, and the y-axis will show mean percent cover across ve
 
 The sketch below shows the planned layout for my figure. It includes two time series lines, direct labels for native and non-native cover, and a dark background inspired by the original visualization.
 
-![planned_figure](../images/sketch.jpg)
+[figure placeholder]
 
 
 # 3. Code the figure
@@ -46,16 +46,19 @@ The sketch below shows the planned layout for my figure. It includes two time se
 ```{r packages}
 
 # general use
-library(tidyverse)
+library(tidyverse) # data cleaning, wrangling, and plotting
 library(janitor) # clean column names
+library(glue) # combine text and values for labels
+library(scales) # format axis labels
 
 # file organization
-library(here)
+library(here) # create reproducible file paths
 
 # data visualization
 library(naniar) # visualize missing data
 library(patchwork) # arrange plots
 library(viridis) # color palette
+library(ggtext) # styled text in ggplot titles/subtitles
 
 
 ```
@@ -196,7 +199,8 @@ cover_explicit0 |>
 
 ```
 
-### Summarize data
+
+### Summarize cover through time
 
 ```{r summarize data}
 
