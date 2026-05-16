@@ -441,7 +441,20 @@ Weather data: NOAA National Centers for Environmental Information, Climate Data 
 # display final plot
 final_cover_plot
 
+
+# save final figure as a png file
+ggsave(filename = here("images", "native_nonnative_cover.png"),
+       plot = final_cover_plot,
+       width = 8,
+       height = 6,
+       units = "in",
+       dpi = 300)
+
+
+
+
 ```
+
 
 # 4. Describe the process
 
