@@ -443,3 +443,19 @@ final_cover_plot
 
 ```
 
+# 4. Describe the process
+
+## Using someone else’s code
+
+I copied Steven Ponce’s code and used it as a template for my own visualization. I kept some of the main design choices, like the dark background, direct labels, contrasting line colors, and annotation lines, but changed the data, variables, colors, and labels to fit my project.
+
+## Challenges
+
+The biggest challenge was figuring out the right way to clean and summarize my data. I first tried going in the direction of explicit zeros and then an implicit/observed-species approach, but I realized that was more complicated than I needed because I was not comparing individual species. Since I was focused on measured native and non-native cover, it made more sense to use the existing cover_category column.
+
+## How this differs from previous figures
+
+This figure required more setup for visual style before making the plot. I created separate objects for colors, title text, subtitle text, caption text, and annotation colors so the final figure would look more like the inspiration. I also used ggtext for styled title text and added precipitation annotation lines, which made the plot more customized than the figures I made previously.
+
+
+
