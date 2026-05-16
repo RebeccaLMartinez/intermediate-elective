@@ -85,94 +85,37 @@ weather <- read_csv(here("data", "NOAA-weather-data.csv"))
 
 ```{r clean veg data}
 
-# create observed percent cover data frame by species and sampling month
-pools_observed <- veg |> 
+# create cleaned vegetation data frame by cover type
+cover_clean <- veg |> 
   
   # keep only vernal pool transects at NCOS
   filter(str_detect(transect_name, "VP") &
            site == "ncos") |>
   
-  # keep only columns needed for this analysis
+  # keep only native and non-native cover rows
+  filter(cover_category %in% c("NATIVE COVER", "NON-NATIVE COVER")) |>
+  
+  # keep only columns needed
   select(date,
          year,
          transect_name,
-         psoc,
          cover_category,
          percent_cover) |>
   
   # remove rows with missing percent cover
   filter(!is.na(percent_cover)) |>
   
-  # create month column from sampling date
-  mutate(month = month(date)) |>
-  
-  # group by year, month, transect, and species
-  group_by(year, month, transect_name, psoc) |>
-  
-  # calculate mean percent cover from observed records
-  summarize(mean_pc = mean(percent_cover, na.rm = TRUE),
-            .groups = "drop")
+  # create month column
+  mutate(month = month(date),
+         
+         # create simpler labels for plotting
+         cover_group = case_when(
+           cover_category == "NATIVE COVER" ~ "Native",
+           cover_category == "NON-NATIVE COVER" ~ "Non-native"
+         ))
 
 # check cleaned data
-pools_observed |>
-  slice_sample(n = 10)
-
-```
-
-### Create native and non-native vectors
-
-```{r native and non-native vectors}
-
-# create a vector of native species names
-native_spp <- veg |>
-  
-  # keep only native cover rows
-  filter(cover_category == "NATIVE COVER") |>
-  
-  # pull species column as a vector
-  pull(psoc) |>
-  
-  # keep only unique species names
-  unique()
-
-
-# create a vector of non-native species names
-nonnative_spp <- veg |>
-  
-  # keep only non-native cover rows
-  filter(cover_category == "NON-NATIVE COVER") |>
-  
-  # pull species column as a vector
-  pull(psoc) |>
-  
-  # keep only unique species names
-  unique()
-
-# check number of species in each group
-length(native_spp)
-length(nonnative_spp)
-
-```
-
-### Add cover vectors to explicit data
-
-```{r add cover vectors to data}
-
-# add native/non-native grouping to observed data
-cover_observed <- pools_observed |>
-  
-  # create cover group based on species vectors
-  mutate(cover_group = case_when(
-    psoc %in% native_spp ~ "Native",
-    psoc %in% nonnative_spp ~ "Non-native",
-    TRUE ~ NA_character_
-  )) |>
-  
-  # remove species that were not classified as native or non-native
-  filter(!is.na(cover_group))
-
-# check grouped data
-cover_observed |>
+cover_clean |>
   slice_sample(n = 10)
 
 ```
@@ -182,16 +125,14 @@ cover_observed |>
 
 ```{r summarize by month  and year}
 
-### Summarize cover by month
-
-# summarize native and non-native cover by month, pool, and cover group
-cover_pool_month <- cover_observed |>
+# summarize cover by year, month, pool, and cover group
+cover_pool_month <- cover_clean |>
   
   # group by year, month, pool, and cover group
   group_by(year, month, transect_name, cover_group) |>
   
-  # calculate total mean percent cover across observed species
-  summarize(total_mean_pc = sum(mean_pc, na.rm = TRUE),
+  # calculate mean percent cover for each pool/month/cover group
+  summarize(mean_pc = mean(percent_cover, na.rm = TRUE),
             .groups = "drop")
 
 
@@ -204,34 +145,37 @@ month_order <- cover_pool_month |>
   # arrange in time order
   arrange(year, month) |>
   
-  # create numeric time index and readable month/year label
-  mutate(time_index = row_number(),
-         month_year = glue("{month.abb[month]} {year}"))
+  # create readable month/year label and month-date for plotting
+  mutate(month_year = glue("{month.abb[month]} {year}"),
+         month_date = make_date(year = year,
+                                month = month,
+                                day = 1))
 
 
-# summarize average native and non-native cover across pools by month
+# summarize average cover across pools by month and cover group
 cover_month_summary <- cover_pool_month |>
   
   # group by year, month, and cover group
   group_by(year, month, cover_group) |>
   
   # calculate average cover across vernal pool transects
-  summarize(mean_cover = mean(total_mean_pc, na.rm = TRUE),
-            sd_cover = sd(total_mean_pc, na.rm = TRUE),
+  summarize(mean_cover = mean(mean_pc, na.rm = TRUE),
+            sd_cover = sd(mean_pc, na.rm = TRUE),
             n_pools = n_distinct(transect_name),
             .groups = "drop") |>
   
-  # join month/year order for plotting
+  # join month/year info for plotting
   left_join(month_order, by = c("year", "month"))
 
 # display summarized data
 cover_month_summary
 
+
 ```
 
 ### Clean weather data
 
-```{r}
+```{r clean weather data}
 
 # clean NOAA precipitation data
 weather_clean <- weather |>
@@ -245,17 +189,12 @@ weather_clean <- weather |>
   # keep precipitation column and create year/month columns
   select(date, prcp) |>
   mutate(year = year(date),
-         month = month(date),
-         plot_date = make_date(year = year,
-                               month = month,
-                               day = 1))
-
+         month = month(date))
 ```
 
 ### Summarize precipitation by month
 
-```{r}
-
+```{r precip by month}
 # summarize total precipitation by year and month
 monthly_precip <- weather_clean |>
   
@@ -263,28 +202,244 @@ monthly_precip <- weather_clean |>
   filter(year %in% unique(cover_month_summary$year)) |>
   
   # group by year, month, and plot date
-  group_by(year, month, plot_date) |>
+  group_by(year, month) |>
   
   # calculate total monthly precipitation
   summarize(total_precip = sum(prcp, na.rm = TRUE),
             .groups = "drop")
 
-# identify the wettest month in each year
-wettest_months <- monthly_precip |>
+
+
+# identify wettest month in each year within the plotted vegetation range
+wettest_months_plot <- monthly_precip |>
+  
+  # create month-date column
+  mutate(month_date = make_date(year = year,
+                                month = month,
+                                day = 1)) |>
+  
+  # keep months inside the plotted figure range
+  filter(month_date >= make_date(2021, 5, 1),
+         month_date <= make_date(2025, 6, 1)) |>
   
   # group by year
   group_by(year) |>
   
-  # keep the month with the highest precipitation in each year
+  # keep wettest month in each year
   slice_max(total_precip, n = 1, with_ties = FALSE) |>
-  
+ 
   # ungroup data frame
-  ungroup()
+  ungroup() |>
+  
+  # create label text for annotation
+  mutate(label = glue("Wettest month\n{month.abb[month]} {year}: {round(total_precip, 1)} in"))
 
-# display wettest months
-wettest_months
 
 ```
 
 
 ## Final figure
+
+```{r final figure}
+
+# create month-date columns for plotting
+cover_month_summary <- cover_month_summary |>
+  mutate(month_date = make_date(year = year,
+                                month = month,
+                                day = 1))
+
+
+# identify wettest month in each year within the plotted vegetation range
+wettest_months_plot <- monthly_precip |>
+  
+  # create month-date column
+  mutate(month_date = make_date(year = year,
+                                month = month,
+                                day = 1)) |>
+  
+  # keep only months within the plot range
+  filter(month_date >= make_date(2021, 5, 1),
+         month_date <= make_date(2025, 6, 1)) |>
+  
+  # group by year
+  group_by(year) |>
+  
+  # keep the wettest month in each year
+  slice_max(total_precip, n = 1, with_ties = FALSE) |>
+  
+  # ungroup data frame
+  ungroup()
+
+
+# create endpoint labels for each line
+end_labels <- cover_month_summary |>
+  
+  # keep the last month-year for each cover group
+  group_by(cover_group) |>
+  filter(month_date == max(month_date)) |>
+  
+  # ungroup data frame
+  ungroup() |>
+  
+  # create label and x position
+  mutate(label = glue("{cover_group}\n{round(mean_cover, 1)}%"),
+         label_date = month_date + months(2))
+
+
+# adjusted variable colors to be more intuitive for vegetation data
+bg_color <- "#0D1B2A"
+native_green <- "forestgreen"
+nonnative_brown <- "tan4"
+text_white <- "#FFFFFF"
+text_muted <- "#8A98A8"
+text_sub <- "#B0B8C4"
+grid_color <- "#1A2E42"
+precip_line <- "#00A6FF"
+
+
+# create styled title with colored text
+title_text <- glue(
+  "<span style='font-weight:900; color:{native_green};'>Native cover dominates.&nbsp;</span>",
+  "<span style='font-weight:900; color:{nonnative_brown};'> Non-native cover trails.</span>"
+)
+
+
+# create styled subtitle
+subtitle_text <- glue(
+  "<span style='font-size:12pt; color:{text_sub};'>",
+  "Native and non-native vegetation cover across restored NCOS vernal pools<br>",
+  "Mean percent cover by sampling month · May 2021-June 2025",
+  "</span>"
+)
+
+
+# create final plot inspired by Steven Ponce's visualization
+final_cover_plot <- ggplot(data = cover_month_summary,
+                           mapping = aes(x = month_date,
+                                         y = mean_cover,
+                                         color = cover_group,
+                                         group = cover_group)) +
+  
+  # add horizontal grid lines
+  geom_hline(yintercept = seq(0, 35, by = 5),
+             color = grid_color,
+             linewidth = 0.25) +
+  
+  # add dotted vertical lines for the wettest precipitation month in each year
+  geom_segment(data = wettest_months_plot,
+               aes(x = month_date,
+                   xend = month_date,
+                   y = 0,
+                   yend = 32),
+               inherit.aes = FALSE,
+               color = precip_line,
+               linewidth = 0.63,
+               linetype = "dotted",
+               alpha = 0.65) +
+  
+  # add annotation for precipitation lines
+  annotate("text",
+           x = make_date(2021, 8, 1),
+           y = 33,
+           label = "Vertical lines mark the wettest\nmonth of each year",
+           hjust = 0,
+           vjust = 1,
+           size = 2.5,
+           color = precip_line,
+           lineheight = 1.1) +
+  
+  # add native line with stronger emphasis
+  geom_line(data = cover_month_summary |>
+              filter(cover_group == "Native"),
+            linewidth = 1.9,
+            alpha = 1) +
+  
+  # add non-native line with softer emphasis
+  geom_line(data = cover_month_summary |>
+              filter(cover_group == "Non-native"),
+            linewidth = 1.3,
+            alpha = 0.75) +
+  
+  # add direct labels at the end of each line
+  geom_text(data = end_labels,
+            aes(x = label_date,
+                label = label),
+            hjust = 0,
+            vjust = 0.5,
+            size = 3.2,
+            lineheight = 1.1,
+            show.legend = FALSE) +
+  
+  # set native and non-native colors
+  scale_color_manual(values = c("Native" = native_green,
+                                "Non-native" = nonnative_brown)) +
+  
+  # set x-axis as actual month-date scale
+  scale_x_date(date_labels = "%Y",
+             breaks = make_date(2021:2025, 7, 1),
+             limits = c(make_date(2021, 5, 1),
+                        make_date(2025, 8, 1)),
+             expand = expansion(mult = c(0, 0))) +
+  
+  # format y-axis as percent cover
+  scale_y_continuous(limits = c(0, 35),
+                     breaks = seq(0, 35, by = 5),
+                     labels = \(x) glue("{x}%"),
+                     expand = expansion(mult = c(0.01, 0.04))) +
+  
+  # add title, subtitle, and caption
+  labs(title = title_text,
+       subtitle = subtitle_text,
+       caption = "Vegetation data: NCOS vegetation monitoring data/report via eScholarship: <https://escholarship.org/uc/item/16p046mb>
+
+Weather data: NOAA National Centers for Environmental Information, Climate Data Online: <https://www.ncei.noaa.gov/cdo-web/>",
+       x = NULL,
+       y = NULL) +
+  
+  # use a dark theme similar to the inspiration figure
+  theme_void() +
+  
+  # customize theme elements
+  theme(
+    plot.background = element_rect(fill = bg_color, color = NA),
+    panel.background = element_rect(fill = bg_color, color = NA),
+    
+    plot.title = element_markdown(color = text_white,
+                                  size = 19,
+                                  hjust = 0,
+                                  lineheight = 1.1,
+                                  margin = margin(t = 10, b = 6)),
+    
+    plot.subtitle = element_markdown(color = text_sub,
+                                     size = 10,
+                                     hjust = 0,
+                                     lineheight = 1.4,
+                                     margin = margin(b = 22)),
+    
+    plot.caption = element_text(color = text_muted,
+                                size = 7,
+                                hjust = 1,
+                                margin = margin(t = 14)),
+    
+    axis.text.x = element_text(size = 9,
+                               color = text_muted,
+                               margin = margin(t = 6)),
+    
+    axis.text.y = element_text(size = 8,
+                               color = text_muted,
+                               hjust = 1),
+    
+    axis.ticks = element_blank(),
+    panel.grid = element_blank(),
+    legend.position = "none",
+    plot.margin = margin(t = 20, r = 75, b = 16, l = 20)
+  ) +
+  
+  # allow labels to extend beyond plot area
+  coord_cartesian(clip = "off")
+
+# display final plot
+final_cover_plot
+
+```
+
