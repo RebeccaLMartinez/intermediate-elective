@@ -1,0 +1,49 @@
+---
+title: "Intermediate Elective 2"
+author: "Rebecca Martinez"
+date: "15 May 2026"
+format:
+  pdf: 
+    fig-width: 10
+    fig-height: 8
+    include-in-header:
+      text: |
+        \usepackage{fvextra}
+        \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,breakanywhere,commandchars=\\\{\}}
+editor: source
+execute: 
+  message: false
+  warning: false
+---
+
+# 1. Setup
+
+## Packages
+
+```{r packages}
+
+# general use
+library(tidyverse)
+library(janitor) 
+
+# file organization
+library(here)
+
+# data visualization
+library(naniar) 
+library(patchwork)  
+library(viridis) 
+
+
+```
+
+## Data
+
+```{r data}
+
+veg <- read_csv(here("data", "veg.csv"))
+
+metadata <- read_csv(here("data", "vp_veg_metadata.csv"))
+
+
+```
