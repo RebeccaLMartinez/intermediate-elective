@@ -24,12 +24,16 @@ The `data` folder contains the vegetation and weather datasets used for the visu
 │   └── NOAA-weather-data.csv
 └── images
     ├── native_nonnative_cover.png
-    └── visual_sketch.jpg
+    └── visual_sketch.png
 ```
 
 ## Rendered output
 
 - [Rendered Intermediate Elective 2 PDF](https://github.com/RebeccaLMartinez/intermediate-elective/blob/main/code/intermediate-elective2.pdf)
+
+## Planned visual
+
+![Planned visualization](images/visual_sketch.png)
 
 ## Final figure
 
