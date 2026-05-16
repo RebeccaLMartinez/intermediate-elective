@@ -32,10 +32,7 @@ The x-axis will show year, and the y-axis will show mean percent cover across ve
 
 # 2. Planned figure
 
-The sketch below shows the planned layout for my figure. It includes two time series lines, direct labels for native and non-native cover, and a dark background inspired by the original visualization.
-
-[figure placeholder]
-
+![The sketch is a planned figure that  includes two time series lines, direct labels for native and non-native cover, and a dark background inspired by the original visualization,  Steven Ponce’s “Coal falls. Renewables rise.”](../images/visual_sketch.png)
 
 # 3. Code the figure
 
